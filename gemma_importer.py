@@ -3,32 +3,35 @@ This script creates 3 TAB files: expression, column metadata (observations), and
 
 An excel sheet of metadata is also created at the end of the script.
 """
-
+import tarfile
+import os.path
 import gzip
 import urllib.request
 import time
-import progressbar
+#import progressbar
 import openpyxl
 import json
 import os
+import sys
 
-dataset = "GSE2018"  # case-sensitive, must match dataset name that is being requested!
+dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
 col_metadata_file = "observations.tab"  # column metadata file
+out_tar = "{}_processed.tar.gz".format(dataset)
 
 exp_dataset_file_name = "{}_python3_exp".format(dataset)  # compressed expression metadata file name
 col_dataset_file_name = "{}_python3_col".format(dataset)  # compressed column metadata file name
 exp_comp_file_name = "{}.tab".format(exp_dataset_file_name)  # saves expression data as .tab file
 col_comp_file_name = "{}.tab".format(col_dataset_file_name)  # saves column metadata as .tab file
 
-conversion_table = "ensembl_conversion_table.txt"  # conversion table
+conversion_table = "../ensembl.txt"  # conversion table
 
-exp_file_path = "C:/Users/Winston/PycharmProjects/gemma_test/expression.tab"
-col_metadata_file_path = "C:/Users/Winston/PycharmProjects/gemma_test/observations.tab"
-genes_file_path = "C:/Users/Winston/PycharmProjects/gemma_test/genes.tab"
-metadata_file_path = 'C:/Users/Winston/PycharmProjects/gemma_test/metadata_GSE2018.xlsx'
+exp_file_path = "expression.tab"
+col_metadata_file_path = "observations.tab"
+genes_file_path = "genes.tab"
+metadata_file_path = 'metadata_2018_copy.xlsx'
 sheet_name = 'metadata'
 
 # request URL for dataset
@@ -54,85 +57,111 @@ with open(exp_comp_file_name, 'wb') as exp_comp, open(col_comp_file_name, 'wb') 
     col_comp.close()
 
 # creating edit data file and gene file
-with gzip.open(exp_comp_file_name, 'rt') as o, open(exp_file, 'w') as file, open(conversion_table, 'rt') as table, \
-        open(gene_file, 'w') as gene, open(col_metadata_file, 'w') as col_data, \
-        gzip.open(col_comp_file_name, 'rt') as col:
-    gene.write("gene\tgene_symbol\n")
+with open(conversion_table, 'rt') as table:
     conversion_dict = {}
     count = 0  # counter of how many names remain unconverted
 
-    for i in progressbar.progressbar(range(100), prefix='Creating files: '):
-        for line in table:
-            if line.startswith("e"):  # removes first line
-                continue
-            split_line = line.rstrip().split()
-            if len(split_line) == 2:  # removes lines with no gene symbol
-                continue
-            (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
-            conversion_dict[key] = val1, val2  # creates dictionary
+    for line in table:
+        if line.startswith("e"):  # removes first line
+            continue
+        split_line = line.rstrip().split()
+        if len(split_line) == 2:  # removes lines with no gene symbol
+            continue
+        (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
+        conversion_dict[key] = val1, val2  # creates dictionary
 
-        for raw_line in o:
-            idx = 0
-            line = raw_line.rstrip().split('\t')  # splits the raw line from the file into a list to be edited
+#### AMC get locations of NaN columns
+with gzip.open(exp_comp_file_name, 'rt') as o:
+    for raw_line in o:
+        whitelist_idx = []
+        line = raw_line.rstrip().split('\t')  # splits the raw line from the file into a list to be edited
 
-            if line[0].startswith('#') or line[5] == "":  # removes "#" lines as well as empty lines
-                continue
+        if line[0].startswith('#') or line[5] == "NCBIid" or line[5] == "":  # removes lines with "#" as well as empty lines
+            continue
 
-            for i in line:
-                if i == 'NaN':
-                    line.pop(idx)
-                idx += 1
+        for num, i in enumerate(line[5:]):
+            if i != 'NaN':
+                whitelist_idx.append(num) # column indices not containing NaN
+        print(whitelist_idx)
+        break # only using one line for now
 
-            formatted_line = line[5:]
-            if len(formatted_line[0].split("|")) > 1:  # if val is a duplicate
-                for i in formatted_line[0].rstrip().split("|"):  # iterates through to get duplicate values
-                    if i in conversion_dict:  # compares val to val in dictionary
-                        new_gene_name = conversion_dict[i][0]  # changes val to respective ensembl_gene_id
-                        new_gene_name_val = conversion_dict[i][1]
-                        # writes line with new gene id and respective data afterwards
-                        file.write('\t'.join([new_gene_name] + formatted_line[1:] + ['\n']))
-                        # writes line in gene file of matching gene symbol index
-                        gene.write('\t'.join([new_gene_name] + [new_gene_name_val] + ['\n']))
-                    else:
-                        count += 1  # add to vals not converted
-            else:  # if val is not a duplicate
-                if formatted_line[0] in conversion_dict:  # compares val to dict
-                    i = formatted_line[0]
-                    formatted_line[0] = conversion_dict[formatted_line[0]][0]  # sets val to respective id
-                    out_line = '\t'.join(formatted_line)
+### AMC actual loop through without NaN cols
+
+with gzip.open(exp_comp_file_name, 'rt') as o, open(exp_file, 'w') as file, open(conversion_table, 'rt') as table, \
+        open(gene_file, 'w') as gene, open(col_metadata_file, 'w') as col_data, \
+        gzip.open(col_comp_file_name, 'rt') as col: # AMC moved these around 
+
+    gene.write("gene\tgene_symbol\n")
+
+    for raw_line in o:
+        #print(raw_line)
+        line = raw_line.rstrip().split('\t')  # splits the raw line from the file into a list to be edited
+
+        if line[0].startswith('#') or line[5] == "":  # removes lines with "#" as well as empty lines
+            continue
+
+        formatted_line_all = line[5:]
+        formatted_line = [formatted_line_all[i] for i in whitelist_idx] # AMC remove NaN cols
+
+        if formatted_line[0] == "NCBIid":  # if the line starts with an n
+            formatted_line[0] = "Gene"
+            whitelist_names = formatted_line[1:]
+            out_line = '\t'.join(formatted_line)
+            file.write(out_line)
+            file.write('\n')
+        if len(formatted_line[0].split("|")) > 1:  # if val is a duplicate
+            for i in formatted_line[0].rstrip().split("|"):  # iterates through to get duplicate values
+                if i in conversion_dict:  # compares val to val in dictionary
+                    new_gene_name = conversion_dict[i][0]  # changes val to respective ensembl_gene_id
+                    new_gene_name_val = conversion_dict[i][1]
                     # writes line with new gene id and respective data afterwards
-                    file.write(out_line)
+                    file.write('\t'.join([new_gene_name] + formatted_line[1:]))
                     file.write('\n')
                     # writes line in gene file of matching gene symbol index
-                    gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]] + ['\n']))
-
-                elif formatted_line[0].lower().startswith("n"):  # if the line starts with an n
-                    out_line = '\t'.join(formatted_line)
-                    file.write(out_line)
-                    file.write('\n')
-
+                    gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
+                    gene.write('\n')
                 else:
-                    count += 1
-
-            for raw_line_col in col:  # iterates through column metadata file
-                col_line = raw_line_col.rstrip().split('\t')
-
-                if col_line[0].startswith('#'):  # removes header files
-                    continue
-
-                period_replace = col_line[0].replace('.', '_')  # changes periods to dashes
-                col_line[0] = period_replace
-
-                equals_replace = col_line[0].replace('=', '.')  # changes equals signs to periods
-                col_line[0] = equals_replace
-
-                formatted_line = col_line[0:3:2]  # skips unneeded lines
+                    count += 1  # add to vals not converted
+        else:  # if val is not a duplicate
+            if formatted_line[0] in conversion_dict:  # compares val to dict
+                i = formatted_line[0]
+                formatted_line[0] = conversion_dict[formatted_line[0]][0]  # sets val to respective id
                 out_line = '\t'.join(formatted_line)
+                # writes line with new gene id and respective data afterwards
+                file.write(out_line)
+                file.write('\n')
+                # writes line in gene file of matching gene symbol index
+                gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
+                gene.write('\n')
+            else:
+                count += 1
 
-                col_data.write(out_line)
-                col_data.write('\n')
+        for raw_line_col in col:  # iterates through column metadata file
+            col_line = raw_line_col.rstrip().split('\t')
 
-        time.sleep(0.01)
+            if col_line[0].startswith('#'):  # removes header files
+                continue
+
+            print(col_line[0])
+
+            # period_replace = col_line[0].replace('.', '_')  # changes periods to dashes
+
+            # equals_replace = period_replace.replace('=', '.')  # changes equals signs to periods
+            # col_line[0] = equals_replace
+
+            # print(equals_replace)
+            whitelist_names.append("Bioassay")
+
+            if col_line[0] not in whitelist_names:
+                continue
+
+            formatted_line = col_line[0:3:2]  # skips unneeded lines
+            out_line = '\t'.join(formatted_line)
+
+            col_data.write(out_line)
+            col_data.write('\n')
+
+    time.sleep(0.01)
 
     print(count, "genes not converted")
     o.close()
@@ -163,6 +192,11 @@ for i in change_list:
             geo_accession.value = jsonResponse['data'][0][i]
 
 wb.save(metadata_file_path)
+
+with tarfile.open(out_tar, "w:gz") as tar:
+    for name in [exp_file, gene_file, col_metadata_file]:
+        tar.add(name)
+
 
 # os.startfile(exp_file_path)
 # os.startfile(col_metadata_file_path)
