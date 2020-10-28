@@ -8,7 +8,7 @@ import os.path
 import gzip
 import urllib.request
 import time
-#import progressbar
+# import progressbar
 import openpyxl
 import json
 import os
@@ -21,10 +21,10 @@ gene_file = "genes.tab"  # gene file
 col_metadata_file = "observations.tab"  # column metadata file
 out_tar = "{}_processed.tar.gz".format(dataset)
 
-exp_dataset_file_name = "{}_python3_exp".format(dataset)  # compressed expression metadata file name
-col_dataset_file_name = "{}_python3_col".format(dataset)  # compressed column metadata file name
-exp_comp_file_name = "{}.tab".format(exp_dataset_file_name)  # saves expression data as .tab file
-col_comp_file_name = "{}.tab".format(col_dataset_file_name)  # saves column metadata as .tab file
+exp_dataset_file = "{}_python3_exp".format(dataset)  # compressed expression metadata file name
+col_dataset_file = "{}_python3_col".format(dataset)  # compressed column metadata file name
+exp_comp_file = "{}.tab".format(exp_dataset_file)  # saves expression data as .tab file
+col_comp_file = "{}.tab".format(col_dataset_file)  # saves column metadata as .tab file
 
 conversion_table = "../ensembl.txt"  # conversion table
 
@@ -49,7 +49,7 @@ r3 = urllib.request.urlopen(col_url)  # request for column metadata
 print("Request(s) successful.")
 
 # creating compressed tab files
-with open(exp_comp_file_name, 'wb') as exp_comp, open(col_comp_file_name, 'wb') as col_comp:
+with open(exp_comp_file, 'wb') as exp_comp, open(col_comp_file, 'wb') as col_comp:
     exp_comp.write(r.read())  # writes expression file from URL request
     col_comp.write(r3.read())  # writes column metadata from URL request
 
@@ -71,37 +71,38 @@ with open(conversion_table, 'rt') as table:
         conversion_dict[key] = val1, val2  # creates dictionary
 
 #### AMC get locations of NaN columns
-with gzip.open(exp_comp_file_name, 'rt') as o:
+with gzip.open(exp_comp_file, 'rt') as o:
     for raw_line in o:
         whitelist_idx = []
         line = raw_line.rstrip().split('\t')  # splits the raw line from the file into a list to be edited
 
-        if line[0].startswith('#') or line[5] == "NCBIid" or line[5] == "":  # removes lines with "#" as well as empty lines
+        # removes lines with "#" as well as empty lines
+        if line[0].startswith('#') or line[5] == "NCBIid" or line[5] == "":
             continue
 
         for num, i in enumerate(line[5:]):
             if i != 'NaN':
-                whitelist_idx.append(num) # column indices not containing NaN
+                whitelist_idx.append(num)  # column indices not containing NaN
         print(whitelist_idx)
-        break # only using one line for now
+        break  # only using one line for now
 
 ### AMC actual loop through without NaN cols
 
-with gzip.open(exp_comp_file_name, 'rt') as o, open(exp_file, 'w') as file, open(conversion_table, 'rt') as table, \
+with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(conversion_table, 'rt') as table, \
         open(gene_file, 'w') as gene, open(col_metadata_file, 'w') as col_data, \
-        gzip.open(col_comp_file_name, 'rt') as col: # AMC moved these around 
+        gzip.open(col_comp_file, 'rt') as col:  # AMC moved these around
 
     gene.write("gene\tgene_symbol\n")
 
     for raw_line in o:
-        #print(raw_line)
+        # print(raw_line)
         line = raw_line.rstrip().split('\t')  # splits the raw line from the file into a list to be edited
 
         if line[0].startswith('#') or line[5] == "":  # removes lines with "#" as well as empty lines
             continue
 
         formatted_line_all = line[5:]
-        formatted_line = [formatted_line_all[i] for i in whitelist_idx] # AMC remove NaN cols
+        formatted_line = [formatted_line_all[i] for i in whitelist_idx]  # AMC remove NaN cols
 
         if formatted_line[0] == "NCBIid":  # if the line starts with an n
             formatted_line[0] = "Gene"
@@ -196,7 +197,6 @@ wb.save(metadata_file_path)
 with tarfile.open(out_tar, "w:gz") as tar:
     for name in [exp_file, gene_file, col_metadata_file]:
         tar.add(name)
-
 
 # os.startfile(exp_file_path)
 # os.startfile(col_metadata_file_path)
