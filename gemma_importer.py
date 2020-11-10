@@ -8,13 +8,18 @@ import os.path
 import gzip
 import urllib.request
 import time
-# import progressbar
 import openpyxl
 import json
 import os
 import sys
 
-dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
+# for dataset testing:
+#   human: GSE2018
+#   mouse: GSE4523
+#   rat: GSE2872
+
+# dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
+dataset = "GSE4523"
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
@@ -26,12 +31,16 @@ col_dataset_file = "{}_python3_col".format(dataset)  # compressed column metadat
 exp_comp_file = "{}.tab".format(exp_dataset_file)  # saves expression data as .tab file
 col_comp_file = "{}.tab".format(col_dataset_file)  # saves column metadata as .tab file
 
-conversion_table = "../ensembl.txt"  # conversion table
+# conversion_table = "../ensembl.txt"  # conversion table
+human_conv_file = "ensembl_conversion_table.txt"
+rat_conv_file = "rnorvegicus_ensembl.txt"
+mouse_conv_file = "mmusculus_ensembl.txt"
 
+# files to be outputted
 exp_file_path = "expression.tab"
 col_metadata_file_path = "observations.tab"
 genes_file_path = "genes.tab"
-metadata_file_path = 'metadata_2018_copy.xlsx'
+metadata_file_path = 'metadata_GSE2018.xlsx'
 sheet_name = 'metadata'
 
 # request URL for dataset
@@ -48,6 +57,9 @@ r2 = urllib.request.urlopen(metadata_url)  # request for metadata url
 r3 = urllib.request.urlopen(col_url)  # request for column metadata
 print("Request(s) successful.")
 
+# json response from GEMMA url request
+jsonResponse = json.load(r2)  # json response from gemma website
+
 # creating compressed tab files
 with open(exp_comp_file, 'wb') as exp_comp, open(col_comp_file, 'wb') as col_comp:
     exp_comp.write(r.read())  # writes expression file from URL request
@@ -56,19 +68,44 @@ with open(exp_comp_file, 'wb') as exp_comp, open(col_comp_file, 'wb') as col_com
     exp_comp.close()
     col_comp.close()
 
-# creating edit data file and gene file
-with open(conversion_table, 'rt') as table:
-    conversion_dict = {}
+# --- creating edit data file and gene file ---
+
+# creating conversion dicts
+with open(human_conv_file, 'rt') as htable, \
+        open(rat_conv_file, 'rt') as rtable, \
+        open(mouse_conv_file, 'rt') as mtable:
+
+    human_conv_dict = {}
+    rat_conv_dict = {}
+    mouse_conv_dict = {}
     count = 0  # counter of how many names remain unconverted
 
-    for line in table:
+    for line in htable:
         if line.startswith("e"):  # removes first line
             continue
         split_line = line.rstrip().split()
         if len(split_line) == 2:  # removes lines with no gene symbol
             continue
         (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
-        conversion_dict[key] = val1, val2  # creates dictionary
+        human_conv_dict[key] = val1, val2  # creates dictionary
+
+    for line in rtable:
+        if line.startswith("e"):  # removes first line
+            continue
+        split_line = line.rstrip().split()
+        if len(split_line) == 2:  # removes lines with no gene symbol
+            continue
+        (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
+        rat_conv_dict[key] = val1, val2  # creates dictionary
+
+    for line in mtable:
+        if line.startswith("e"):  # removes first line
+            continue
+        split_line = line.rstrip().split()
+        if len(split_line) == 2:  # removes lines with no gene symbol
+            continue
+        (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
+        mouse_conv_dict[key] = val1, val2  # creates dictionary
 
 #### AMC get locations of NaN columns
 with gzip.open(exp_comp_file, 'rt') as o:
@@ -83,16 +120,25 @@ with gzip.open(exp_comp_file, 'rt') as o:
         for num, i in enumerate(line[5:]):
             if i != 'NaN':
                 whitelist_idx.append(num)  # column indices not containing NaN
-        print(whitelist_idx)
+        # print(whitelist_idx)
         break  # only using one line for now
 
 ### AMC actual loop through without NaN cols
 
-with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(conversion_table, 'rt') as table, \
+with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(human_conv_file, 'rt') as htable, \
         open(gene_file, 'w') as gene, open(col_metadata_file, 'w') as col_data, \
         gzip.open(col_comp_file, 'rt') as col:  # AMC moved these around
 
     gene.write("gene\tgene_symbol\n")
+
+    for i in jsonResponse['data'][0]:
+        if i == 'taxon':
+            if jsonResponse['data'][0][i] == 'human':
+                conversion_dict = human_conv_dict
+            if jsonResponse['data'][0][i] == 'rat':
+                conversion_dict = rat_conv_dict
+            if jsonResponse['data'][0][i] == 'mouse':
+                conversion_dict = mouse_conv_dict
 
     for raw_line in o:
         # print(raw_line)
@@ -143,7 +189,7 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(conv
             if col_line[0].startswith('#'):  # removes header files
                 continue
 
-            print(col_line[0])
+            # print(col_line[0])
 
             # period_replace = col_line[0].replace('.', '_')  # changes periods to dashes
 
@@ -164,10 +210,12 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(conv
 
     time.sleep(0.01)
 
-    print(count, "genes not converted")
+    print(count, "genes not converted.")
     o.close()
     file.close()
-    table.close()
+    htable.close()
+    rtable.close()
+    mtable.close()
     gene.close()
     col_data.close()
 
@@ -182,7 +230,6 @@ annotation_source = ws.cell(5, 2)
 geo_accession = ws.cell(7, 2)
 
 change_list = ['name', 'description', 'accession']
-jsonResponse = json.load(r2)
 for i in change_list:
     if i in jsonResponse['data'][0]:
         if i == 'name':
@@ -192,6 +239,11 @@ for i in change_list:
         if i == 'accession':
             geo_accession.value = jsonResponse['data'][0][i]
 
+# if .save() throws permission error:
+# -> comment out .save()
+# -> uncomment .startfile(metadata_file_apth)
+# -> run script again to open excel file
+# -> uncomment .save() and run script again
 wb.save(metadata_file_path)
 
 with tarfile.open(out_tar, "w:gz") as tar:
