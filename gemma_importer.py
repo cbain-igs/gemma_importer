@@ -18,8 +18,8 @@ import sys
 #   mouse: GSE4523
 #   rat: GSE2872
 
-dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
-# dataset = "GSE4523"
+# dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
+dataset = "GSE4523"
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
@@ -40,7 +40,7 @@ mouse_conv_file = "mmusculus_ensembl.txt"
 exp_file_path = "expression.tab"
 col_metadata_file_path = "observations.tab"
 genes_file_path = "genes.tab"
-metadata_file_path = 'metadata_GSE2018.xlsx'
+metadata_file_path = 'metadata.xlsx'
 sheet_name = 'metadata'
 
 # request URL for dataset
@@ -74,7 +74,6 @@ with open(exp_comp_file, 'wb') as exp_comp, open(col_comp_file, 'wb') as col_com
 with open(human_conv_file, 'rt') as htable, \
         open(rat_conv_file, 'rt') as rtable, \
         open(mouse_conv_file, 'rt') as mtable:
-
     human_conv_dict = {}
     rat_conv_dict = {}
     mouse_conv_dict = {}
@@ -107,7 +106,7 @@ with open(human_conv_file, 'rt') as htable, \
         (key, val1, val2) = (split_line[2], split_line[0], split_line[1])  # creates dictionary entry
         mouse_conv_dict[key] = val1, val2  # creates dictionary
 
-#### AMC get locations of NaN columns
+# AMC get locations of NaN columns
 with gzip.open(exp_comp_file, 'rt') as o:
     for raw_line in o:
         whitelist_idx = []
@@ -123,7 +122,7 @@ with gzip.open(exp_comp_file, 'rt') as o:
         # print(whitelist_idx)
         break  # only using one line for now
 
-### AMC actual loop through without NaN cols
+# AMC actual loop through without NaN cols
 
 with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(human_conv_file, 'rt') as htable, \
         open(gene_file, 'w') as gene, open(col_metadata_file, 'w') as col_data, \
@@ -239,11 +238,7 @@ for i in change_list:
         if i == 'accession':
             geo_accession.value = jsonResponse['data'][0][i]
 
-# if .save() throws permission error:
-# -> comment out .save()
-# -> uncomment .startfile(metadata_file_apth)
-# -> run script again to open excel file
-# -> uncomment .save() and run script again
+# if .save() throws permission error, make sure excel file is closed and rerun script
 wb.save(metadata_file_path)
 
 with tarfile.open(out_tar, "w:gz") as tar:
