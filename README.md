@@ -10,7 +10,7 @@ Certain libraries are used and should be installed.
 
 ```python3 gemma_importer.py [GEMMA dataset GEO name]```
 
-# Files
+# Files Created
 ```
 expression.tab
 genes.tab
