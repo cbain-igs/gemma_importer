@@ -32,7 +32,7 @@ exp_comp_file = "{}.tab".format(exp_dataset_file)  # saves expression data as .t
 col_comp_file = "{}.tab".format(col_dataset_file)  # saves column metadata as .tab file
 
 # conversion_table = "../ensembl.txt"  # conversion table
-human_conv_file = "ensembl_conversion_table.txt"
+human_conv_file = "human_ensembl.txt"
 rat_conv_file = "rnorvegicus_ensembl.txt"
 mouse_conv_file = "mmusculus_ensembl.txt"
 
@@ -49,16 +49,20 @@ exp_url = "https://gemma.msl.ubc.ca/rest/v2/datasets/{}/data?filter=false".forma
 col_url = "https://gemma.msl.ubc.ca/rest/v2/datasets/{}/design".format(dataset)
 # request dataset for metadata
 metadata_url = "https://gemma.msl.ubc.ca/rest/v2/datasets/{}?offset=0&limit=20&sort=%2Bid".format(dataset)
+# request URL for platforms
+platform_url = "https://gemma.msl.ubc.ca/rest/v2/datasets/{}/platforms".format(dataset)
 
 # url request
 print("Requesting URL(s)...")
 r = urllib.request.urlopen(exp_url)  # request for dataset url
 r2 = urllib.request.urlopen(metadata_url)  # request for metadata url
 r3 = urllib.request.urlopen(col_url)  # request for column metadata
+r4 = urllib.request.urlopen(platform_url)  # request for platforms
 print("Request(s) successful.")
 
 # json response from GEMMA url request
 jsonResponse = json.load(r2)  # json response from gemma website
+platformResponse = json.load(r4)  # json response for platforms
 
 # creating compressed tab files
 with open(exp_comp_file, 'wb') as exp_comp, open(col_comp_file, 'wb') as col_comp:
@@ -130,13 +134,13 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
 
     gene.write("gene\tgene_symbol\n")
 
-    for i in jsonResponse['data'][0]:
+    for i in platformResponse['data'][0]:
         if i == 'taxon':
-            if jsonResponse['data'][0][i] == 'human':
+            if platformResponse['data'][0][i] == 'human':
                 conversion_dict = human_conv_dict
-            if jsonResponse['data'][0][i] == 'rat':
+            if platformResponse['data'][0][i] == 'rat':
                 conversion_dict = rat_conv_dict
-            if jsonResponse['data'][0][i] == 'mouse':
+            if platformResponse['data'][0][i] == 'mouse':
                 conversion_dict = mouse_conv_dict
 
     for raw_line in o:
