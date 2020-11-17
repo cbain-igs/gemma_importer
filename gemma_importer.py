@@ -19,7 +19,7 @@ import sys
 #   rat: GSE2872
 
 dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
-# dataset = "GSE4523"
+# dataset = "GSE2018"
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
@@ -232,8 +232,7 @@ dataset_type = ws.cell(4, 2)
 annotation_source = ws.cell(5, 2)
 geo_accession = ws.cell(7, 2)
 
-change_list = ['name', 'description', 'accession']
-for i in change_list:
+for i in ['name', 'description', 'accession']:
     if i in jsonResponse['data'][0]:
         if i == 'name':
             title.value = jsonResponse['data'][0][i]
@@ -241,6 +240,13 @@ for i in change_list:
             summary.value = jsonResponse['data'][0][i]
         if i == 'accession':
             geo_accession.value = jsonResponse['data'][0][i]
+
+shortName = "shortName"
+if shortName in platformResponse['data'][0]:
+    if platformResponse['data'][0][shortName] in {"generic_human_ncbiIds", "generic_mouse_ncbiIds", "generic_rat_ncbiIds"}:
+        dataset_type.value = "bulk-rnaseq"
+    else:
+        dataset_type.value = "microarray"
 
 # if .save() throws permission error, make sure excel file is closed and rerun script
 wb.save(metadata_file_path)
