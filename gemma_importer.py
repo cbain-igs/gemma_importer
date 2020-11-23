@@ -133,6 +133,7 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
         gzip.open(col_comp_file, 'rt') as col:  # AMC moved these around
 
     gene.write("gene\tgene_symbol\n")
+    converted_genes = []  # list to store converted gene names to prevent duplicates
 
     for i in platformResponse['data'][0]:
         if i == 'taxon':
@@ -164,25 +165,31 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
                 if i in conversion_dict:  # compares val to val in dictionary
                     new_gene_name = conversion_dict[i][0]  # changes val to respective ensembl_gene_id
                     new_gene_name_val = conversion_dict[i][1]
-                    # writes line with new gene id and respective data afterwards
-                    file.write('\t'.join([new_gene_name] + formatted_line[1:]))
-                    file.write('\n')
-                    # writes line in gene file of matching gene symbol index
-                    gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
-                    gene.write('\n')
+                    # if the converted name is not already in file
+                    if new_gene_name_val not in converted_genes:
+                        converted_genes.append(new_gene_name_val)
+                        # writes line with new gene id and respective data afterwards
+                        file.write('\t'.join([new_gene_name] + formatted_line[1:]))
+                        file.write('\n')
+                        # writes line in gene file of matching gene symbol index
+                        gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
+                        gene.write('\n')
                 else:
                     count += 1  # add to vals not converted
         else:  # if val is not a duplicate
             if formatted_line[0] in conversion_dict:  # compares val to dict
                 i = formatted_line[0]
                 formatted_line[0] = conversion_dict[formatted_line[0]][0]  # sets val to respective id
-                out_line = '\t'.join(formatted_line)
-                # writes line with new gene id and respective data afterwards
-                file.write(out_line)
-                file.write('\n')
-                # writes line in gene file of matching gene symbol index
-                gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
-                gene.write('\n')
+                # if the converted name is not in file
+                if conversion_dict[i][1] not in converted_genes:
+                    converted_genes.append(conversion_dict[i][1])
+                    out_line = '\t'.join(formatted_line)
+                    # writes line with new gene id and respective data afterwards
+                    file.write(out_line)
+                    file.write('\n')
+                    # writes line in gene file of matching gene symbol index
+                    gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
+                    gene.write('\n')
             else:
                 count += 1
 
@@ -210,8 +217,6 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
 
             col_data.write(out_line)
             col_data.write('\n')
-
-    time.sleep(0.01)
 
     print(count, "genes not converted.")
     o.close()
