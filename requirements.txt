@@ -11,9 +11,3 @@ json
 #
 openpyxl >= 3.0.5
 #
-##### Required Files #####
-human_ensembl.txt           # human conversion table
-mmusculus_ensembl.txt       # mouse conversion table
-rnorvegicus_ensembl.txt     # rat conversion table
-metadata.xlsx               # metadata template
-#
