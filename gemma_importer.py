@@ -199,14 +199,6 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
             if col_line[0].startswith('#'):  # removes header files
                 continue
 
-            # print(col_line[0])
-
-            # period_replace = col_line[0].replace('.', '_')  # changes periods to dashes
-
-            # equals_replace = period_replace.replace('=', '.')  # changes equals signs to periods
-            # col_line[0] = equals_replace
-
-            # print(equals_replace)
             whitelist_names.append("Bioassay")
 
             if col_line[0] not in whitelist_names:
