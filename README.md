@@ -18,22 +18,22 @@ observations.tab
 metadata.xlsx
 [dataset tag]_processed.tar.gz
 ```
+# Requirements
 
-##### Requirements without Version Specifiers #####
+##### Requirements without Version Specifiers
 ```
 tarfile
 gzip
 urlib.request
 json
 ```
-#
-##### Requirements with Version Specifiers #####
-#
+
+##### Requirements with Version Specifiers
 ```
 openpyxl >= 3.0.5
 ```
-#
-##### Required Files #####
+
+##### Required Files
 ```
 human_ensembl.txt           # human conversion table
 mmusculus_ensembl.txt       # mouse conversion table
