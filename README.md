@@ -1,10 +1,12 @@
 # gemma_importer
 
-This script creates an expression, gene, and column metadata file for a given GEMMA dataset and compresses it to be uploaded to NEMO easily.
+This script creates an expression, gene, and column metadata file for a chosen Gemma dataset and compresses it to be uploaded to NEMO easily.
 
-Compressed data files from HTTP responses are also generated at the moment, this will be changed soon.
+A processed tarball file is also generated for the user.
 
-Certain libraries are used and should be installed.
+Compressed data files from HTTP responses are also generated, this will be changed soon.
+
+Certain libraries are used and should be installed. Requirements are shown below.
 
 # To run script in cmd line
 
