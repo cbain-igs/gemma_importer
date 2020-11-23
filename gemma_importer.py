@@ -4,10 +4,8 @@ This script creates 3 TAB files: expression, column metadata (observations), and
 An excel sheet of metadata is also created at the end of the script.
 """
 import tarfile
-import os.path
 import gzip
 import urllib.request
-import time
 import openpyxl
 import json
 import os
