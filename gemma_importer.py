@@ -131,7 +131,8 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
         gzip.open(col_comp_file, 'rt') as col:  # AMC moved these around
 
     gene.write("gene\tgene_symbol\n")
-    converted_genes = []  # list to store converted gene names to prevent duplicates
+    converted_genes = {}  # list to store converted gene names to prevent duplicates
+    mean = 0
 
     for i in platformResponse['data'][0]:
         if i == 'taxon':
@@ -158,36 +159,60 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
             out_line = '\t'.join(formatted_line)
             file.write(out_line)
             file.write('\n')
+
         if len(formatted_line[0].split("|")) > 1:  # if val is a duplicate
             for i in formatted_line[0].rstrip().split("|"):  # iterates through to get duplicate values
                 if i in conversion_dict:  # compares val to val in dictionary
                     new_gene_name = conversion_dict[i][0]  # changes val to respective ensembl_gene_id
                     new_gene_name_val = conversion_dict[i][1]
+                    formatted_line[0] = new_gene_name
+
+                    for j in formatted_line[1:]:
+                        j = float(j)
+                        mean += j
+
+                    mean /= (len(formatted_line) - 1)
+
                     # if the converted name is not already in file
                     if new_gene_name_val not in converted_genes:
-                        converted_genes.append(new_gene_name_val)
+                        converted_genes[new_gene_name_val] = mean, formatted_line
                         # writes line with new gene id and respective data afterwards
-                        file.write('\t'.join([new_gene_name] + formatted_line[1:]))
-                        file.write('\n')
-                        # writes line in gene file of matching gene symbol index
-                        gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
-                        gene.write('\n')
+                        # file.write('\t'.join([new_gene_name] + formatted_line[1:]))
+                        # file.write('\n')
+                        # # writes line in gene file of matching gene symbol index
+                        # gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
+                        # gene.write('\n')
+
+                    else:
+                        if mean > converted_genes[new_gene_name_val][0]:
+                            converted_genes[new_gene_name_val] = mean, formatted_line
                 else:
                     count += 1  # add to vals not converted
         else:  # if val is not a duplicate
             if formatted_line[0] in conversion_dict:  # compares val to dict
                 i = formatted_line[0]
                 formatted_line[0] = conversion_dict[formatted_line[0]][0]  # sets val to respective id
+
+                for j in formatted_line[1:]:
+                    j = float(j)
+                    mean += j
+
+                mean /= (len(formatted_line) - 1)
+
                 # if the converted name is not in file
                 if conversion_dict[i][1] not in converted_genes:
-                    converted_genes.append(conversion_dict[i][1])
-                    out_line = '\t'.join(formatted_line)
-                    # writes line with new gene id and respective data afterwards
-                    file.write(out_line)
-                    file.write('\n')
-                    # writes line in gene file of matching gene symbol index
-                    gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
-                    gene.write('\n')
+                    converted_genes[conversion_dict[i][1]] = mean, formatted_line
+                    # out_line = '\t'.join(formatted_line)
+                    # # writes line with new gene id and respective data afterwards
+                    # file.write(out_line)
+                    # file.write('\n')
+                    # # writes line in gene file of matching gene symbol index
+                    # gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
+                    # gene.write('\n')
+
+                else:
+                    if mean > converted_genes[conversion_dict[i][1]][0]:
+                        converted_genes[conversion_dict[i][1]] = mean, formatted_line
             else:
                 count += 1
 
@@ -207,6 +232,17 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
 
             col_data.write(out_line)
             col_data.write('\n')
+
+    for i in converted_genes:
+        out_line = '\t'.join(converted_genes[i][1])
+        file.write(out_line)
+        file.write('\n')
+        # print(converted_genes['DDR1'][1][0], type(converted_genes['DDR1'][1][0]))
+        # print(converted_genes[i], type(converted_genes[i]))
+        gene_contents = (converted_genes[i][1][0], i)
+        out_line2 = '\t'.join(gene_contents)
+        gene.write(out_line2)
+        gene.write('\n')
 
     print(count, "genes not converted.")
     o.close()
