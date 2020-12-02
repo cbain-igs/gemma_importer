@@ -17,7 +17,6 @@ import sys
 #   rat: GSE2872
 
 dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
-# dataset = "GSE145073"
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
