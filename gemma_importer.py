@@ -17,7 +17,7 @@ import sys
 #   rat: GSE2872
 
 dataset = sys.argv[1]  # case-sensitive, must match dataset name that is being requested!
-# dataset = "GSE2018"
+# dataset = "GSE145073"
 
 exp_file = "expression.tab"  # expression file
 gene_file = "genes.tab"  # gene file
@@ -79,7 +79,8 @@ with open(human_conv_file, 'rt') as htable, \
     human_conv_dict = {}
     rat_conv_dict = {}
     mouse_conv_dict = {}
-    count = 0  # counter of how many names remain unconverted
+    unconverted_count = 0  # counter of how many names remain unconverted
+    converted_count = 0
 
     for line in htable:
         if line.startswith("e"):  # removes first line
@@ -121,7 +122,6 @@ with gzip.open(exp_comp_file, 'rt') as o:
         for num, i in enumerate(line[5:]):
             if i != 'NaN':
                 whitelist_idx.append(num)  # column indices not containing NaN
-        # print(whitelist_idx)
         break  # only using one line for now
 
 # AMC actual loop through without NaN cols
@@ -172,22 +172,18 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
                         mean += j
 
                     mean /= (len(formatted_line) - 1)
+                    mean = abs(mean)
 
                     # if the converted name is not already in file
                     if new_gene_name_val not in converted_genes:
+                        # adds calculated mean and gene data to dict
                         converted_genes[new_gene_name_val] = mean, formatted_line
-                        # writes line with new gene id and respective data afterwards
-                        # file.write('\t'.join([new_gene_name] + formatted_line[1:]))
-                        # file.write('\n')
-                        # # writes line in gene file of matching gene symbol index
-                        # gene.write('\t'.join([new_gene_name] + [new_gene_name_val]))
-                        # gene.write('\n')
-
                     else:
+                        # if gene has a higher average expression, replaces lower average expression gene
                         if mean > converted_genes[new_gene_name_val][0]:
                             converted_genes[new_gene_name_val] = mean, formatted_line
                 else:
-                    count += 1  # add to vals not converted
+                    unconverted_count += 1  # add to vals not converted
         else:  # if val is not a duplicate
             if formatted_line[0] in conversion_dict:  # compares val to dict
                 i = formatted_line[0]
@@ -198,26 +194,22 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
                     mean += j
 
                 mean /= (len(formatted_line) - 1)
+                mean = abs(mean)
 
                 # if the converted name is not in file
                 if conversion_dict[i][1] not in converted_genes:
+                    # adds calculated mean and gene data to dict
                     converted_genes[conversion_dict[i][1]] = mean, formatted_line
-                    # out_line = '\t'.join(formatted_line)
-                    # # writes line with new gene id and respective data afterwards
-                    # file.write(out_line)
-                    # file.write('\n')
-                    # # writes line in gene file of matching gene symbol index
-                    # gene.write('\t'.join([formatted_line[0]] + [conversion_dict[i][1]]))
-                    # gene.write('\n')
-
                 else:
+                    # if gene has a higher average expression, replaces lower average expression gene
                     if mean > converted_genes[conversion_dict[i][1]][0]:
                         converted_genes[conversion_dict[i][1]] = mean, formatted_line
             else:
-                count += 1
+                unconverted_count += 1
 
         for raw_line_col in col:  # iterates through column metadata file
             col_line = raw_line_col.rstrip().split('\t')
+            formatted_line.clear()
 
             if col_line[0].startswith('#'):  # removes header files
                 continue
@@ -227,24 +219,27 @@ with gzip.open(exp_comp_file, 'rt') as o, open(exp_file, 'w') as file, open(huma
             if col_line[0] not in whitelist_names:
                 continue
 
-            formatted_line = col_line[0:3:2]  # skips unneeded lines
+            for i in col_line:
+                if i == col_line[1]:  # skips externalID
+                    continue
+                formatted_line.append(i)
+
             out_line = '\t'.join(formatted_line)
 
             col_data.write(out_line)
             col_data.write('\n')
 
-    for i in converted_genes:
-        out_line = '\t'.join(converted_genes[i][1])
+    for i in converted_genes:  # iterates through dictionary of converted genes
+        out_line = '\t'.join(converted_genes[i][1])  # writes gene data
         file.write(out_line)
         file.write('\n')
-        # print(converted_genes['DDR1'][1][0], type(converted_genes['DDR1'][1][0]))
-        # print(converted_genes[i], type(converted_genes[i]))
-        gene_contents = (converted_genes[i][1][0], i)
+
+        gene_contents = (converted_genes[i][1][0], i)  # make contents of gene file
         out_line2 = '\t'.join(gene_contents)
         gene.write(out_line2)
         gene.write('\n')
 
-    print(count, "genes not converted.")
+    print(unconverted_count, "genes not converted.")
     o.close()
     file.close()
     htable.close()
@@ -260,7 +255,6 @@ ws = wb[sheet_name]
 title = ws.cell(2, 2)
 summary = ws.cell(3, 2)
 dataset_type = ws.cell(4, 2)
-annotation_source = ws.cell(5, 2)
 geo_accession = ws.cell(7, 2)
 
 for i in ['name', 'description', 'accession']:
@@ -285,8 +279,4 @@ wb.save(metadata_file_path)
 with tarfile.open(out_tar, "w:gz") as tar:
     for name in [exp_file, gene_file, col_metadata_file]:
         tar.add(name)
-
-# os.startfile(exp_file_path)
-# os.startfile(col_metadata_file_path)
-# os.startfile(genes_file_path)
-# os.startfile(metadata_file_path)
+        
