@@ -8,7 +8,7 @@ Compressed data files from HTTP responses are also generated, this will be chang
 
 Certain libraries are used and should be installed. Requirements are shown below.
 
-# To run script in cmd line
+# To Run Script in cmd Line
 
 ```python3 gemma_importer.py [GEMMA dataset GEO name]```
 
